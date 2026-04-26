@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -10,8 +11,13 @@ import (
 var jwtSecret []byte
 
 func init() {
-	// In production, this should be loaded from config
-	jwtSecret = []byte("your-secret-key-change-in-production")
+	// Load JWT secret from environment variable
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		// Use a default for development only - FAIL IN PRODUCTION
+		secret = "your-secret-key-change-in-production"
+	}
+	jwtSecret = []byte(secret)
 }
 
 type JWTClaims struct {

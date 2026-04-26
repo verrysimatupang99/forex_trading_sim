@@ -50,11 +50,10 @@ services:
       - DB_NAME=forex_sim
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_SECRET=your-secret-key-change-in-production
-      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
-      - OANDA_API_KEY=${OANDA_API_KEY:-}
-      - OANDA_ACCOUNT_ID=${OANDA_ACCOUNT_ID:-}
-      - MODEL_PATH=/app/models
+      - JWT_SECRET=${JWT_SECRET:-forex-sim-secret-key}
+      - DATA_SOURCE=${DATA_SOURCE:-frankfurter}
+      - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-25}
+      - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS:-10}
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,28 +63,15 @@ services:
       - ./models:/app/models
     restart: unless-stopped
 
-  # ML Training Service (placeholder)
-  ml-service:
-    build:
-      context: ./ml
-      dockerfile: Dockerfile
-    container_name: forex-sim-ml
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=forex_sim
-      - MODEL_PATH=/app/models
-    volumes:
-      - ./models:/app/models
-      - ml_training_data:/app/data
-    restart: unless-stopped
+  # ML Training Service - TODO: implement later
+  # ml-service:
+  #   build:
+  #     context: ./ml
+  #     dockerfile: Dockerfile
 
 volumes:
   postgres_data:
   redis_data:
-  ml_training_data:
 
 networks:
   default:

@@ -3,8 +3,11 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	"forex-trading-sim/config"
 	"forex-trading-sim/internal/database"
 	"forex-trading-sim/internal/handlers"
@@ -13,7 +16,7 @@ import (
 )
 
 // @title Forex Trading Simulator API
-// @version 1.0
+// @version 1.1
 // @description API for forex trading simulator with ML predictions
 // @termsOfService http://swagger.io/terms/
 
@@ -25,7 +28,7 @@ import (
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host localhost:8080
-// @BasePath /api/v1
+// @BasePath /api
 func main() {
 	// Load configuration with validation
 	cfg, err := config.Load()
@@ -44,6 +47,8 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	log.Println("Initializing services...")
+
 	// Initialize services
 	authService := services.NewAuthService(db)
 	userService := services.NewUserService(db)
@@ -56,33 +61,76 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
 	tradingHandler := handlers.NewTradingHandler(tradingService)
-	predictionHandler := handlers.NewPredictionHandler(predictionService)
+	predictionHandler := handlers.NewPredictionHandler(predictionService, db)
 	backtestHandler := handlers.NewBacktestHandler(db)
 	advancedOrdersHandler := handlers.NewAdvancedOrdersHandler(advancedOrderService)
 	currencyHandler := handlers.NewCurrencyHandler(currencyConverter, db)
 
-	// Setup router
-	r := gin.Default()
+	// Setup router with custom middleware
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(middleware.Logger())
 
-	// Public routes
-	api := r.Group("/api/v1")
+	// Health check
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok", "timestamp": time.Now()})
+	})
+
+	// Readiness check
+	r.GET("/ready", func(c *gin.Context) {
+		sqlDB, err := db.DB()
+		if err != nil || sqlDB.Ping() != nil {
+			c.JSON(503, gin.H{"status": "not ready"})
+			return
+		}
+		c.JSON(200, gin.H{"status": "ready"})
+	})
+
+	// Serve static web files
+	r.Static("/web", "./web")
+
+	// Serve root index.html
+	r.GET("/", func(c *gin.Context) {
+		c.File("./web/index.html")
+	})
+
+	// DB middleware to make DB available in handlers
+	r.Use(func(c *gin.Context) {
+		c.Set("db", db)
+		c.Next()
+	})
+
+	// API versioning middleware
+	r.Use(middleware.VersionHandler())
+
+	// Public routes with rate limiting
+	api := r.Group("/api")
 	{
-		auth := api.Group("/auth")
+		// Apply stricter rate limiting to auth endpoints
+		auth := api.Group("/v1/auth")
+		auth.Use(middleware.AuthRateLimitMiddleware())
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.RefreshToken)
 		}
 
-		// Public data endpoints
-		api.GET("/historical-data", handlers.GetHistoricalData)
-		api.GET("/technical-indicators", handlers.GetTechnicalIndicators)
-		api.GET("/currency-pairs", handlers.GetCurrencyPairs)
+		// Public data endpoints with standard rate limiting
+		v1 := api.Group("/v1")
+		v1.Use(middleware.RateLimitMiddleware())
+		v1.Use(middleware.InputSanitizer())
+		{
+			v1.GET("/historical-data", handlers.GetHistoricalData)
+			v1.GET("/technical-indicators", handlers.GetTechnicalIndicators)
+			v1.GET("/currency-pairs", handlers.GetCurrencyPairs)
+		}
 	}
 
 	// Protected routes
-	protected := api.Group("")
+	protected := api.Group("/v1")
 	protected.Use(middleware.JWTAuth())
+	protected.Use(middleware.RateLimitMiddleware())
+	protected.Use(middleware.InputSanitizer())
 	{
 		// User management
 		users := protected.Group("/users")
@@ -166,19 +214,30 @@ func main() {
 		}
 	}
 
-	// Health check
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
-
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	log.Printf("Server starting on port %s", port)
+	log.Printf("=================================================")
+	log.Printf("Forex Trading Simulator API v1.1 starting...")
+	log.Printf("Server port: %s", port)
+	log.Printf("API Documentation: http://localhost:%s/swagger/index.html", port)
+	log.Printf("Supported API Versions: v1.0, v1.1")
+	log.Printf("Current Version: v1.1")
+	log.Printf("=================================================")
+	
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// GetDBFromContext retrieves the database from gin context
+func GetDBFromContext(c *gin.Context) *gorm.DB {
+	db, exists := c.Get("db")
+	if !exists || db == nil {
+		return nil
+	}
+	return db.(*gorm.DB)
 }

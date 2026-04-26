@@ -112,9 +112,9 @@ func (s *WalkForwardService) Run(config WalkForwardConfig) (*WalkForwardResult, 
 			defer wg.Done()
 			
 			// Run training period
-			trainResult, err := s.runFold(foldData, config, true)
+		 trainResult, err := s.runFold(foldData, config, true)
 			if err != nil {
-				// Log error but continue
+				// Log error but don't send zero values - skip this fold
 				return
 			}
 			foldData.TrainMetrics = trainResult
@@ -122,7 +122,7 @@ func (s *WalkForwardService) Run(config WalkForwardConfig) (*WalkForwardResult, 
 			// Run testing period (out-of-sample)
 			testResult, err := s.runFold(foldData, config, false)
 			if err != nil {
-				// Log error but continue
+				// Log error but don't send zero values - skip this fold
 				return
 			}
 			foldData.TestMetrics = testResult

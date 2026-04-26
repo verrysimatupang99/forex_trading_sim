@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"regexp"
 	"time"
 
 	"gorm.io/gorm"
@@ -35,15 +36,53 @@ type AuthResponse struct {
 	AccessToken string       `json:"access_token"`
 }
 
+// validatePasswordStrength validates password meets minimum security requirements
+func validatePasswordStrength(password string) error {
+	if len(password) < 8 {
+		return errors.New("password must be at least 8 characters")
+	}
+	
+	// Check for at least one uppercase letter
+	upperCaseRegex := regexp.MustCompile(`[A-Z]`)
+	if !upperCaseRegex.MatchString(password) {
+		return errors.New("password must contain at least one uppercase letter")
+	}
+	
+	// Check for at least one lowercase letter
+	lowerCaseRegex := regexp.MustCompile(`[a-z]`)
+	if !lowerCaseRegex.MatchString(password) {
+		return errors.New("password must contain at least one lowercase letter")
+	}
+	
+	// Check for at least one digit
+	digitRegex := regexp.MustCompile(`[0-9]`)
+	if !digitRegex.MatchString(password) {
+		return errors.New("password must contain at least one digit")
+	}
+	
+	return nil
+}
+
 func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
+	// Validate password strength
+	if err := validatePasswordStrength(input.Password); err != nil {
+		return nil, err
+	}
+
 	// Check if user already exists
 	var existingUser models.User
 	if err := s.db.Where("email = ?", input.Email).First(&existingUser).Error; err == nil {
 		return nil, errors.New("user with this email already exists")
 	}
 
+	// Use higher cost for production (12 instead of default 10)
+	bcryptCost := bcrypt.DefaultCost
+	if envCost := getEnvInt("BCRYPT_COST", 0); envCost > 0 {
+		bcryptCost = envCost
+	}
+	
 	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcryptCost)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}

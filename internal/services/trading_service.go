@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -291,21 +292,38 @@ type ExchangeRate struct {
 }
 
 // GetExchangeRate returns the exchange rate between two currencies
-// In production, this would fetch from a live API
+// Uses currency converter for accurate rates
 func GetExchangeRate(from, to string, db *gorm.DB) (float64, error) {
 	if from == to {
 		return 1.0, nil
 	}
 
-	// Try to find direct rate in database
+	// Use currency converter service for accurate rates
+	converter := NewCurrencyConverter(db)
+	rate, err := converter.GetExchangeRate(from, to)
+	if err == nil {
+		return rate, nil
+	}
+
+	// Fallback: Try to find rate from currency pairs in database
 	var pair models.CurrencyPair
 	directSymbol := from + "/" + to
 	reverseSymbol := to + "/" + from
 
 	// Check direct pair (e.g., EUR/USD)
 	if err := db.Where("symbol = ? OR symbol = ?", directSymbol, reverseSymbol).First(&pair).Error; err == nil {
-		// Return typical rate (in production, use live price)
-		return 1.0850, nil // Placeholder
+		// Try to get latest price from historical data
+		var price models.HistoricalPrice
+		if err := db.Where("currency_pair_id = ?", pair.ID).
+			Order("timestamp DESC").First(&price).Error; err == nil {
+			if from == pair.BaseCurrency {
+				return price.Close, nil
+			}
+			// For reverse pair
+			return 1.0 / price.Close, nil
+		}
+		// Return fallback - this should be replaced with actual market data
+		return getFallbackExchangeRate(from, to)
 	}
 
 	// Try cross rates through USD
@@ -315,13 +333,51 @@ func GetExchangeRate(from, to string, db *gorm.DB) (float64, error) {
 
 	if err := db.Where("symbol = ?", baseSymbol).First(&basePair).Error; err == nil {
 		if err := db.Where("symbol = ?", quoteSymbol).First(&quotePair).Error; err == nil {
-			// Calculate cross rate
-			return 1.0, nil // Would multiply base * quote
+			// Get prices for both pairs
+			var basePrice, quotePrice models.HistoricalPrice
+			if db.Where("currency_pair_id = ?", basePair.ID).
+				Order("timestamp DESC").First(&basePrice).Error == nil {
+				if db.Where("currency_pair_id = ?", quotePair.ID).
+					Order("timestamp DESC").First(&quotePrice).Error == nil {
+					// Calculate cross rate: (from/USD) / (to/USD) = from/to
+					return basePrice.Close / quotePrice.Close, nil
+				}
+			}
 		}
 	}
 
-	// Default fallback (should not reach here in production)
-	return 1.0, nil
+	// Final fallback
+	return getFallbackExchangeRate(from, to)
+}
+
+// getFallbackExchangeRate returns a fallback rate for simulation
+func getFallbackExchangeRate(from, to string) (float64, error) {
+	// Fallback rates for major pairs (should only be used for simulation)
+	fallbackRates := map[string]float64{
+		"EUR/USD": 1.0850,
+		"GBP/USD": 1.2650,
+		"USD/JPY": 149.50,
+		"USD/CHF": 0.8820,
+		"AUD/USD": 0.6520,
+		"USD/CAD": 1.3650,
+		"NZD/USD": 0.6120,
+		"EUR/GBP": 0.8580,
+		"EUR/JPY": 162.20,
+		"GBP/JPY": 189.00,
+	}
+
+	symbol := from + "/" + to
+	if rate, ok := fallbackRates[symbol]; ok {
+		return rate, nil
+	}
+
+	// Try reverse
+	reverseSymbol := to + "/" + from
+	if rate, ok := fallbackRates[reverseSymbol]; ok {
+		return 1.0 / rate, nil
+	}
+
+	return 1.0, errors.New("exchange rate not available for " + from + "/" + to)
 }
 
 // ConvertToBaseCurrency converts a value to account base currency
@@ -457,11 +513,19 @@ type PositionSizingConfig struct {
 
 // CalculateFixedPositionSize calculates position size using fixed percentage risk
 func CalculateFixedPositionSize(accountBalance, entryPrice, stopLoss, riskPercent float64) float64 {
-	riskAmount := accountBalance * (riskPercent / 100)
-	priceRisk := math.Abs(entryPrice - stopLoss)
-	if priceRisk == 0 {
+	// Validate inputs to prevent division by zero
+	if accountBalance <= 0 || entryPrice <= 0 || riskPercent <= 0 {
 		return 0
 	}
+
+	riskAmount := accountBalance * (riskPercent / 100)
+	priceRisk := math.Abs(entryPrice - stopLoss)
+	
+	// If stopLoss is not set (0), use a default risk of 2% of price
+	if priceRisk == 0 {
+		priceRisk = entryPrice * 0.02 // Default 2% risk
+	}
+	
 	return riskAmount / priceRisk
 }
 
@@ -618,11 +682,24 @@ func (s *TradingService) CalculatePositionSize(
 
 // TradingService handles trading operations
 type TradingService struct {
-	db *gorm.DB
+	db           *gorm.DB
+	priceService *PriceService
 }
 
+// NewTradingService creates a new trading service
 func NewTradingService(db *gorm.DB) *TradingService {
-	return &TradingService{db: db}
+	return &TradingService{
+		db:           db,
+		priceService: NewPriceService(db),
+	}
+}
+
+// NewTradingServiceWithPrice creates a new trading service with price service
+func NewTradingServiceWithPrice(db *gorm.DB, priceService *PriceService) *TradingService {
+	return &TradingService{
+		db:           db,
+		priceService: priceService,
+	}
 }
 
 // CalculatePnL calculates profit/loss for a trade
@@ -662,7 +739,8 @@ type CreateAccountInput struct {
 
 type ExecuteTradeInput struct {
 	AccountID      uint    `json:"account_id" binding:"required"`
-	CurrencyPairID uint    `json:"currency_pair_id" binding:"required"`
+	CurrencyPairID uint    `json:"currency_pair_id"`
+	CurrencyPair   string  `json:"currency_pair"`
 	Type           string  `json:"type" binding:"required,oneof=BUY SELL"`
 	Quantity       float64 `json:"quantity" binding:"required,gt=0"`
 	EntryPrice     float64 `json:"entry_price"`
@@ -716,16 +794,32 @@ func (s *TradingService) ExecuteTrade(userID uint, input ExecuteTradeInput) (*mo
 		return nil, errors.New("unauthorized")
 	}
 
-	// Get currency pair
+	// Get currency pair - support both ID and symbol
 	var pair models.CurrencyPair
-	if err := s.db.First(&pair, input.CurrencyPairID).Error; err != nil {
-		return nil, errors.New("currency pair not found")
+	if input.CurrencyPairID > 0 {
+		if err := s.db.First(&pair, input.CurrencyPairID).Error; err != nil {
+			return nil, errors.New("currency pair not found, id=" + fmt.Sprint(input.CurrencyPairID))
+		}
+	} else if input.CurrencyPair != "" {
+		// Parse currency pair string (e.g., "EUR/USD")
+		result := s.db.Where("symbol = ?", input.CurrencyPair).First(&pair)
+		if result.Error != nil {
+			return nil, errors.New("currency pair not found: " + input.CurrencyPair)
+		}
+		input.CurrencyPairID = pair.ID
+	} else {
+		return nil, errors.New("currency_pair_id or currency_pair is required")
 	}
 
-	// If no entry price provided, use current price (simulated)
+	// If no entry price provided, fetch current market price
 	entryPrice := input.EntryPrice
 	if entryPrice == 0 {
-		entryPrice = 1.0850 // Placeholder - would fetch from data service
+		// Use price service to get current price
+		price, err := s.priceService.GetCurrentPrice(input.CurrencyPairID)
+		if err != nil {
+			return nil, errors.New("failed to get current price: " + err.Error())
+		}
+		entryPrice = price
 	}
 
 	// Calculate required margin
@@ -799,8 +893,30 @@ func (s *TradingService) ExecuteTrade(userID uint, input ExecuteTradeInput) (*mo
 
 func (s *TradingService) GetPositions(accountID uint) ([]models.Position, error) {
 	var positions []models.Position
+	// First try to get from Position table
 	if err := s.db.Where("account_id = ?", accountID).Find(&positions).Error; err != nil {
 		return nil, err
+	}
+	// If no positions found, check for open trades
+	if len(positions) == 0 {
+		var trades []models.Trade
+		if err := s.db.Where("account_id = ? AND status = ?", accountID, "open").Find(&trades).Error; err != nil {
+			return nil, err
+		}
+		// Convert trades to positions
+		for _, trade := range trades {
+			positions = append(positions, models.Position{
+				ID:             trade.ID,
+				AccountID:      trade.AccountID,
+				CurrencyPairID: trade.CurrencyPairID,
+				Type:           trade.Type,
+				EntryPrice:     trade.EntryPrice,
+				CurrentPrice:   trade.ExitPrice,
+				Quantity:       trade.Quantity,
+				UnrealizedPnL:  trade.PnL,
+				OpenedAt:       trade.EntryTime,
+			})
+		}
 	}
 	return positions, nil
 }
@@ -813,12 +929,83 @@ func (s *TradingService) GetTradeHistory(accountID uint) ([]models.Trade, error)
 	return trades, nil
 }
 
-func (s *TradingService) ClosePosition(positionID uint, exitPrice float64) (*models.Trade, error) {
+// VerifyAccountOwnership checks if a user owns a trading account
+func (s *TradingService) VerifyAccountOwnership(userID, accountID uint) (bool, error) {
+	var account models.Account
+	if err := s.db.First(&account, accountID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, errors.New("account not found")
+		}
+		return false, err
+	}
+	return account.UserID == userID, nil
+}
+
+// GetPositionByID retrieves a position by its ID
+func (s *TradingService) GetPositionByID(positionID uint) (*models.Position, error) {
 	var position models.Position
 	if err := s.db.First(&position, positionID).Error; err != nil {
-		return nil, errors.New("position not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("position not found")
+		}
+		return nil, err
+	}
+	return &position, nil
+}
+
+func (s *TradingService) ClosePosition(positionID uint, exitPrice float64) (*models.Trade, error) {
+	// First try to find a Position
+	var position models.Position
+	err := s.db.First(&position, positionID).Error
+	
+	var trade models.Trade
+	var foundFromTrade bool
+	
+	if err != nil {
+		// If position not found, try to find an open trade
+		err = s.db.First(&trade, positionID).Error
+		if err != nil {
+			return nil, errors.New("position not found")
+		}
+		if trade.Status == "closed" {
+			return nil, errors.New("position already closed")
+		}
+		foundFromTrade = true
 	}
 
+	if foundFromTrade {
+		// Closing a trade directly
+		if exitPrice == 0 {
+			exitPrice = trade.EntryPrice
+		}
+		
+		var pnl float64
+		if trade.Type == "BUY" {
+			pnl = (exitPrice - trade.EntryPrice) * trade.Quantity
+		} else {
+			pnl = (trade.EntryPrice - exitPrice) * trade.Quantity
+		}
+		pnlPercent := (pnl / (trade.EntryPrice * trade.Quantity)) * 100
+		
+		trade.ExitPrice = exitPrice
+		trade.PnL = pnl
+		trade.PnLPercent = pnlPercent
+		trade.Status = "closed"
+		now := time.Now()
+		trade.ExitTime = &now
+		s.db.Save(&trade)
+		
+		// Update account balance
+		var account models.Account
+		s.db.First(&account, trade.AccountID)
+		account.Balance += pnl
+		account.Equity = account.Balance
+		s.db.Save(&account)
+		
+		return &trade, nil
+	}
+
+	// Closing a position (original logic)
 	if exitPrice == 0 {
 		exitPrice = position.CurrentPrice
 	}
@@ -834,7 +1021,7 @@ func (s *TradingService) ClosePosition(positionID uint, exitPrice float64) (*mod
 	pnlPercent := (pnl / (position.EntryPrice * position.Quantity)) * 100
 
 	// Create closed trade
-	trade := models.Trade{
+	trade = models.Trade{
 		AccountID:      position.AccountID,
 		CurrencyPairID: position.CurrencyPairID,
 		Type:           position.Type,

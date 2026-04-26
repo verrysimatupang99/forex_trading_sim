@@ -1,0 +1,65 @@
+2026/03/17 04:14:03 Connected to PostgreSQL database (max_open=25, max_idle=10)
+2026/03/17 04:14:03 Running database migrations...
+2026/03/17 04:14:04 Database migrations completed successfully
+2026/03/17 04:14:04 Initializing services...
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /health                   --> main.main.func1 (3 handlers)
+[GIN-debug] GET    /ready                    --> main.main.func2 (3 handlers)
+[GIN-debug] GET    /web/*filepath            --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (3 handlers)
+[GIN-debug] HEAD   /web/*filepath            --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (3 handlers)
+[GIN-debug] GET    /                         --> main.main.func3 (3 handlers)
+[GIN-debug] POST   /api/v1/auth/register     --> forex-trading-sim/internal/handlers.(*AuthHandler).Register-fm (6 handlers)
+[GIN-debug] POST   /api/v1/auth/login        --> forex-trading-sim/internal/handlers.(*AuthHandler).Login-fm (6 handlers)
+[GIN-debug] POST   /api/v1/auth/refresh      --> forex-trading-sim/internal/handlers.(*AuthHandler).RefreshToken-fm (6 handlers)
+[GIN-debug] GET    /api/v1/historical-data   --> forex-trading-sim/internal/handlers.GetHistoricalData (7 handlers)
+[GIN-debug] GET    /api/v1/technical-indicators --> forex-trading-sim/internal/handlers.GetTechnicalIndicators (7 handlers)
+[GIN-debug] GET    /api/v1/currency-pairs    --> forex-trading-sim/internal/handlers.GetCurrencyPairs (7 handlers)
+[GIN-debug] GET    /api/v1/users/me          --> forex-trading-sim/internal/handlers.(*UserHandler).GetProfile-fm (8 handlers)
+[GIN-debug] PUT    /api/v1/users/me          --> forex-trading-sim/internal/handlers.(*UserHandler).UpdateProfile-fm (8 handlers)
+[GIN-debug] GET    /api/v1/trading/accounts  --> forex-trading-sim/internal/handlers.(*TradingHandler).GetAccounts-fm (8 handlers)
+[GIN-debug] POST   /api/v1/trading/accounts  --> forex-trading-sim/internal/handlers.(*TradingHandler).CreateAccount-fm (8 handlers)
+[GIN-debug] GET    /api/v1/trading/accounts/:id/balance --> forex-trading-sim/internal/handlers.(*TradingHandler).GetBalance-fm (8 handlers)
+[GIN-debug] POST   /api/v1/trading/trade     --> forex-trading-sim/internal/handlers.(*TradingHandler).ExecuteTrade-fm (8 handlers)
+[GIN-debug] GET    /api/v1/trading/positions --> forex-trading-sim/internal/handlers.(*TradingHandler).GetPositions-fm (8 handlers)
+[GIN-debug] GET    /api/v1/trading/trades    --> forex-trading-sim/internal/handlers.(*TradingHandler).GetTradeHistory-fm (8 handlers)
+[GIN-debug] DELETE /api/v1/trading/positions/:id --> forex-trading-sim/internal/handlers.(*TradingHandler).ClosePosition-fm (8 handlers)
+[GIN-debug] POST   /api/v1/predictions/predict --> forex-trading-sim/internal/handlers.(*PredictionHandler).Predict-fm (8 handlers)
+[GIN-debug] GET    /api/v1/predictions/history --> forex-trading-sim/internal/handlers.(*PredictionHandler).GetPredictionHistory-fm (8 handlers)
+[GIN-debug] POST   /api/v1/backtest/run      --> forex-trading-sim/internal/handlers.(*BacktestHandler).RunBacktest-fm (8 handlers)
+[GIN-debug] GET    /api/v1/backtest/results  --> forex-trading-sim/internal/handlers.(*BacktestHandler).GetBacktestResults-fm (8 handlers)
+[GIN-debug] GET    /api/v1/backtest/results/:id --> forex-trading-sim/internal/handlers.(*BacktestHandler).GetBacktestResult-fm (8 handlers)
+[GIN-debug] GET    /api/v1/backtest/equity-curve/:id --> forex-trading-sim/internal/handlers.(*BacktestHandler).GetEquityCurve-fm (8 handlers)
+[GIN-debug] GET    /api/v1/backtest/trades/:id --> forex-trading-sim/internal/handlers.(*BacktestHandler).GetBacktestTrades-fm (8 handlers)
+[GIN-debug] POST   /api/v1/walkforward/run   --> forex-trading-sim/internal/handlers.(*BacktestHandler).RunWalkForward-fm (8 handlers)
+[GIN-debug] GET    /api/v1/walkforward/results --> forex-trading-sim/internal/handlers.(*BacktestHandler).GetWalkForwardResults-fm (8 handlers)
+[GIN-debug] POST   /api/v1/orders/pending    --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).CreatePendingOrder-fm (8 handlers)
+[GIN-debug] GET    /api/v1/orders/pending    --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).GetPendingOrders-fm (8 handlers)
+[GIN-debug] DELETE /api/v1/orders/pending/:id --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).CancelPendingOrder-fm (8 handlers)
+[GIN-debug] POST   /api/v1/orders/oco        --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).CreateOCOOrder-fm (8 handlers)
+[GIN-debug] GET    /api/v1/orders/oco        --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).GetOCOOrders-fm (8 handlers)
+[GIN-debug] DELETE /api/v1/orders/oco/:id    --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).CancelOCOOrder-fm (8 handlers)
+[GIN-debug] POST   /api/v1/orders/oto        --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).CreateOTOOrder-fm (8 handlers)
+[GIN-debug] GET    /api/v1/orders/oto        --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).GetOTOOrders-fm (8 handlers)
+[GIN-debug] DELETE /api/v1/orders/oto/:id    --> forex-trading-sim/internal/handlers.(*AdvancedOrdersHandler).CancelOTOOrder-fm (8 handlers)
+[GIN-debug] GET    /api/v1/currency/rate     --> forex-trading-sim/internal/handlers.(*CurrencyHandler).GetExchangeRate-fm (8 handlers)
+[GIN-debug] GET    /api/v1/currency/rates    --> forex-trading-sim/internal/handlers.(*CurrencyHandler).GetRates-fm (8 handlers)
+[GIN-debug] POST   /api/v1/currency/rate     --> forex-trading-sim/internal/handlers.(*CurrencyHandler).UpdateRate-fm (8 handlers)
+[GIN-debug] GET    /api/v1/currency/cross    --> forex-trading-sim/internal/handlers.(*CurrencyHandler).GetCrossRate-fm (8 handlers)
+[GIN-debug] POST   /api/v1/currency/refresh  --> forex-trading-sim/internal/handlers.(*CurrencyHandler).RefreshRates-fm (8 handlers)
+[GIN-debug] POST   /api/v1/currency/convert  --> forex-trading-sim/internal/handlers.(*CurrencyHandler).ConvertCurrency-fm (8 handlers)
+[GIN-debug] POST   /api/v1/currency/account  --> forex-trading-sim/internal/handlers.(*CurrencyHandler).CreateMultiCurrencyAccount-fm (8 handlers)
+[GIN-debug] GET    /api/v1/currency/account/:id --> forex-trading-sim/internal/handlers.(*CurrencyHandler).GetMultiCurrencyAccount-fm (8 handlers)
+[GIN-debug] GET    /api/v1/currency/exposure/:account_id --> forex-trading-sim/internal/handlers.(*CurrencyHandler).GetCurrencyExposure-fm (8 handlers)
+2026/03/17 04:14:04 =================================================
+2026/03/17 04:14:04 Forex Trading Simulator API v1.1 starting...
+2026/03/17 04:14:04 Server port: 8080
+2026/03/17 04:14:04 API Documentation: http://localhost:8080/swagger/index.html
+2026/03/17 04:14:04 Supported API Versions: v1.0, v1.1
+2026/03/17 04:14:04 Current Version: v1.1
+2026/03/17 04:14:04 =================================================
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on :8080

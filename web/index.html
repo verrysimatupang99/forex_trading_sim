@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forex Trading Simulator</title>
+    <link rel="stylesheet" href="/web/css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Login View -->
+        <div id="login-view" class="view">
+            <div class="login-container">
+                <h1>Forex Trading Simulator</h1>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Login</button>
+                    <p class="register-link">Don't have an account? <a href="#" id="show-register">Register</a></p>
+                </form>
+                
+                <form id="register-form" style="display: none;">
+                    <div class="form-group">
+                        <label for="reg-email">Email</label>
+                        <input type="email" id="reg-email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">Password</label>
+                        <input type="password" id="reg-password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-name">Full Name</label>
+                        <input type="text" id="reg-name" name="name" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Register</button>
+                    <p class="register-link">Already have an account? <a href="#" id="show-login">Login</a></p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="view" style="display: none;">
+            <header>
+                <h1>Forex Trading Simulator</h1>
+                <div class="user-info">
+                    <span id="user-email"></span>
+                    <button id="logout-btn" class="btn-secondary">Logout</button>
+                </div>
+            </header>
+
+            <nav>
+                <button class="nav-btn active" data-view="home">Home</button>
+                <button class="nav-btn" data-view="trade">Trade</button>
+                <button class="nav-btn" data-view="positions">Positions</button>
+                <button class="nav-btn" data-view="history">History</button>
+                <button class="nav-btn" data-view="predictions">Predictions</button>
+                <button class="nav-btn" data-view="backtest">Backtest</button>
+            </nav>
+
+            <main>
+                <!-- Home Section -->
+                <section id="home-section" class="content-section">
+                    <h2>Account Overview</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Account ID</h3>
+                            <p id="account-id">-</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Balance</h3>
+                            <p id="account-balance">-</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Open Positions</h3>
+                            <p id="open-positions-count">-</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total Trades</h3>
+                            <p id="total-trades-count">-</p>
+                        </div>
+                    </div>
+
+                    <h3>Available Currency Pairs</h3>
+                    <div id="currency-pairs-list" class="currency-pairs-grid"></div>
+                </section>
+
+                <!-- Trade Section -->
+                <section id="trade-section" class="content-section" style="display: none;">
+                    <h2>Execute Trade</h2>
+                    <form id="trade-form">
+                        <div class="form-group">
+                            <label for="trade-pair">Currency Pair</label>
+                            <select id="trade-pair" name="pair" required>
+                                <option value="">Select Pair</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="trade-type">Trade Type</label>
+                            <select id="trade-type" name="type" required>
+                                <option value="BUY">BUY</option>
+                                <option value="SELL">SELL</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="trade-amount">Amount (Units)</label>
+                            <input type="number" id="trade-amount" name="amount" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="trade-price">Price</label>
+                            <input type="number" id="trade-price" name="price" step="0.00001" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Execute Trade</button>
+                    </form>
+                    <div id="trade-result"></div>
+                </section>
+
+                <!-- Positions Section -->
+                <section id="positions-section" class="content-section" style="display: none;">
+                    <h2>Open Positions</h2>
+                    <table id="positions-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Pair</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Entry Price</th>
+                                <th>Current Price</th>
+                                <th>P/L</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positions-tbody"></tbody>
+                    </table>
+                </section>
+
+                <!-- History Section -->
+                <section id="history-section" class="content-section" style="display: none;">
+                    <h2>Trade History</h2>
+                    <table id="history-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Pair</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Price</th>
+                                <th>Closed At</th>
+                                <th>Profit/Loss</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody"></tbody>
+                    </table>
+                </section>
+
+                <!-- Predictions Section -->
+                <section id="predictions-section" class="content-section" style="display: none;">
+                    <h2>Price Prediction</h2>
+                    <form id="prediction-form">
+                        <div class="form-group">
+                            <label for="pred-pair">Currency Pair</label>
+                            <select id="pred-pair" name="pair" required>
+                                <option value="">Select Pair</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="pred-periods">Periods</label>
+                            <input type="number" id="pred-periods" name="periods" value="10" min="1" max="100">
+                        </div>
+                        <button type="submit" class="btn-primary">Predict</button>
+                    </form>
+                    <div id="prediction-result"></div>
+                </section>
+
+                <!-- Backtest Section -->
+                <section id="backtest-section" class="content-section" style="display: none;">
+                    <h2>Backtest Strategy</h2>
+                    <form id="backtest-form">
+                        <div class="form-group">
+                            <label for="bt-pair">Currency Pair</label>
+                            <select id="bt-pair" name="pair" required>
+                                <option value="">Select Pair</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="bt-strategy">Strategy</label>
+                            <select id="bt-strategy" name="strategy" required>
+                                <option value="ma_crossover">MA Crossover</option>
+                                <option value="rsi">RSI</option>
+                                <option value="macd">MACD</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="bt-start">Start Date</label>
+                            <input type="date" id="bt-start" name="start_date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="bt-end">End Date</label>
+                            <input type="date" id="bt-end" name="end_date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="bt-initial">Initial Capital</label>
+                            <input type="number" id="bt-initial" name="initial_capital" value="10000">
+                        </div>
+                        <button type="submit" class="btn-primary">Run Backtest</button>
+                    </form>
+                    <div id="backtest-result"></div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="/web/js/api.js"></script>
+    <script src="/web/js/auth.js"></script>
+    <script src="/web/js/app.js"></script>
+</body>
+</html>

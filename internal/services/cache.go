@@ -85,12 +85,12 @@ func (s *CacheService) GetOrFetch(ctx context.Context, key string, dest interfac
 		fmt.Printf("Failed to cache data: %v\n", err)
 	}
 
-	// Unmarshal to dest
-	if dataBytes, ok := data.([]byte); ok {
-		return json.Unmarshal(dataBytes, dest)
+	// Marshal and unmarshal to dest
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return err
 	}
-	
-	return json.Unmarshal([]byte(fmt.Sprintf("%v", data)), dest)
+	return json.Unmarshal(dataBytes, dest)
 }
 
 // PriceCacheKeys generates cache keys for price data

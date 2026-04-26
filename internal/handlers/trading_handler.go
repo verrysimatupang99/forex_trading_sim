@@ -94,9 +94,22 @@ func (h *TradingHandler) ExecuteTrade(c *gin.Context) {
 }
 
 func (h *TradingHandler) GetPositions(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	accountID, err := strconv.ParseUint(c.Query("account_id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+
+	// Verify account ownership
+	owned, err := h.tradingService.VerifyAccountOwnership(userID.(uint), uint(accountID))
+	if err != nil || !owned {
+		c.JSON(http.StatusForbidden, gin.H{"error": "you do not have access to this account"})
 		return
 	}
 
@@ -110,9 +123,22 @@ func (h *TradingHandler) GetPositions(c *gin.Context) {
 }
 
 func (h *TradingHandler) GetTradeHistory(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	accountID, err := strconv.ParseUint(c.Query("account_id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+
+	// Verify account ownership
+	owned, err := h.tradingService.VerifyAccountOwnership(userID.(uint), uint(accountID))
+	if err != nil || !owned {
+		c.JSON(http.StatusForbidden, gin.H{"error": "you do not have access to this account"})
 		return
 	}
 
@@ -126,9 +152,29 @@ func (h *TradingHandler) GetTradeHistory(c *gin.Context) {
 }
 
 func (h *TradingHandler) ClosePosition(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
 	positionID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid position id"})
+		return
+	}
+
+	// First get the position to find the account
+	position, err := h.tradingService.GetPositionByID(uint(positionID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "position not found"})
+		return
+	}
+
+	// Verify account ownership
+	owned, err := h.tradingService.VerifyAccountOwnership(userID.(uint), position.AccountID)
+	if err != nil || !owned {
+		c.JSON(http.StatusForbidden, gin.H{"error": "you do not have access to this position"})
 		return
 	}
 
